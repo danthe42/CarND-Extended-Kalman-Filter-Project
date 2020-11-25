@@ -38,12 +38,19 @@ class FusionEKF {
   // previous timestamp
   long long previous_timestamp_;
 
+  // acceleration noise 
+  float noise_ax;
+  float noise_ay;
+
   // tool object used to compute Jacobian and RMSE
-  Tools tools;
   Eigen::MatrixXd R_laser_;
   Eigen::MatrixXd R_radar_;
   Eigen::MatrixXd H_laser_;
   Eigen::MatrixXd Hj_;
+
+  // contains utility functions
+  Tools tools;
+
 };
 
 #endif // FusionEKF_H_
