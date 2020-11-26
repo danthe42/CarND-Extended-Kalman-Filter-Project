@@ -54,12 +54,18 @@ MatrixXd Tools::CalculateJacobian(const VectorXd& x_state)
 
   if (fabs(c1) < 0.0001)
   {
-    cout <<  "CalculateJacobian: Division by Zero";
+    // It's and error. Normally shouldn't happen because the radar's destination can never be so close to the sensor.
+    cout <<  "CalculateJacobian: Division by Zero. Plase check the radar sensor, it gave us an invalid measurement. This can indicate hardware failure, or just that the sensor's surface is dirty";
+
+    // Just give back something, it's still better than application crash
+    Hj << 0, 0, 0, 0,
+          0, 0, 0, 0,
+          0, 0, 0, 0;    
     return Hj;
   }
 
-  Hj << px/c2   , py/c1 , 0 , 0 ,
-      -py/c1    , px/c2 , 0 , 0 ,
+  Hj << px/c2   , py/c2 , 0 , 0 ,
+      -py/c1    , px/c1 , 0 , 0 ,
       py*c4/c3  , -px*c4/c3,  px/c2,  py/c2;
 
   return Hj;     

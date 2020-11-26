@@ -15,14 +15,10 @@ KalmanFilter::KalmanFilter() {}
 
 KalmanFilter::~KalmanFilter() {}
 
-void KalmanFilter::Init(VectorXd &x_in, MatrixXd &P_in, MatrixXd &F_in,
-                        MatrixXd &H_in, MatrixXd &R_in, MatrixXd &Q_in) {
+void KalmanFilter::Init(VectorXd &x_in, MatrixXd &P_in, MatrixXd &F_in) {
   x_ = x_in;
   P_ = P_in;
   F_ = F_in;
-  H_ = H_in;
-  R_ = R_in;
-  Q_ = Q_in;
 }
 
 void KalmanFilter::Predict() {
@@ -54,20 +50,34 @@ void KalmanFilter::UpdateEKF(const VectorXd &z) {
   //  rho_dot - range rate (velocity in the direction of phi, "away" from us)
 
   // calculate h(x')
-  float c1 = sqrt( x_[0] * x_[0] + x_[1] * x_[1] );
+  float rho = sqrt( x_[0] * x_[0] + x_[1] * x_[1] );
 
-  if (c1 < 0.001)
+  float rho_dot = 0.0;
+  float phi = 0.0;
+
+  if (rho < 0.0001 || 
+        (fabs(x_[0])<0.00001 && fabs(x_[1])<0.00001))
   {
-    int apple=0;
+    // It's and error. Normally shouldn't happen because the radar's destination can never be so close to the sensor.
+    // We need to handle these cases: 
+    //  a) we need to divide with c1 later, it would cause division by zero exception 
+    //  b) or atan2(y,x) is "undefined" at the origin, where both values are zero. Some platform/compiler handle this case somehow, others just give back NaN or throw exception... 
+    cout <<  "UpdateEKF: Division by Zero. Plase check the radar sensor. This can indicate hardware failure, or just that the sensor's surface is dirty.";    
+    // in this case use the default 0 for rho_dot and phi, it's still better than application crash
+  } 
+  else 
+  {
+    phi = atan2( x_[1], x_[0] );
+    rho_dot = ( x_[0]*x_[2] + x_[1]*x_[3]) / rho;
   }
 
-  // TODO: check c1, it should not be near zero 
   VectorXd h_func(3);
-  h_func <<                      c1              ,
-                      atan2( x_[1], x_[0] )      ,
-              ( x_[0]*x_[2] + x_[1]*x_[3]) / c1;
+  h_func <<                      rho              ,
+                                 phi              ,
+                               rho_dot            ;
   VectorXd y = z - h_func;
 
+  // put y[1] in the proper range
   while (y[1]<-M_PI) y[1] += 2*M_PI;
   while (y[1]>M_PI) y[1] -= 2*M_PI;
 

@@ -51,12 +51,16 @@ void FusionEKF::ProcessMeasurement(const MeasurementPackage &measurement_pack) {
   /**
    * Initialization
    */
+  if (is_initialized_ && (labs( previous_timestamp_ - measurement_pack.timestamp_ ) > 1e15 ))
+  {
+    // The simulator does't handle the timestamp correctly after a restart, it will give us an incorrect, 
+    // insanely big timestamp just after restart. Use this to restart the kalman filter at our side.
+
+    cout << "Overflow in timestamp detected. Simulation restarted, reinitializing kalman filter." << endl;
+    is_initialized_ = false;
+  }
+
   if (!is_initialized_) {
-    /**
-     * TODO: Initialize the state ekf_.x_ with the first measurement.
-     * TODO: Create the covariance matrix.
-     * You'll need to convert radar from polar to cartesian coordinates.
-     */
 
     // first measurement
     previous_timestamp_ = measurement_pack.timestamp_;            
@@ -85,7 +89,10 @@ void FusionEKF::ProcessMeasurement(const MeasurementPackage &measurement_pack) {
            0, 0, 1, 0,
            0, 0, 0, 1;     
 
-      ekf_.Init( x, p, f, ekf_.H_, R_radar_, ekf_.Q_);
+      // We don't initialize the whole kalman filter here. Only F, P and the state variable x will be set here. 
+      // For predict phase: Q will be calculated right before calling predict() ( and F will be updated with dt value),
+      // For update phase: H, and R will be calculated right before calling update() or updateEKF()
+      ekf_.Init( x, p, f );
     }
     else if (measurement_pack.sensor_type_ == MeasurementPackage::LASER) {
 
@@ -102,7 +109,10 @@ void FusionEKF::ProcessMeasurement(const MeasurementPackage &measurement_pack) {
            0, 0, 1000, 0,
            0, 0, 0, 1000;     
 
-      ekf_.Init( x, p, f, H_laser_, R_laser_, ekf_.Q_);
+      // We don't initialize the whole kalman filter here. Only F, P and the state variable x will be set here. 
+      // For predict phase: Q will be calculated right before calling predict() ( and F will be updated with dt value),
+      // For update phase: H, and R will be calculated right before calling update() or updateEKF()
+      ekf_.Init( x, p, f );
     }
 
     // done initializing, no need to predict or update
@@ -141,12 +151,12 @@ void FusionEKF::ProcessMeasurement(const MeasurementPackage &measurement_pack) {
 
   if (measurement_pack.sensor_type_ == MeasurementPackage::RADAR) {
 
-    ekf_.H_ = tools.CalculateJacobian( ekf_.x_ );
     ekf_.R_ = R_radar_;
+    ekf_.H_ = tools.CalculateJacobian( ekf_.x_ );
     ekf_.UpdateEKF(measurement_pack.raw_measurements_);
   } else {
-    ekf_.H_ = H_laser_;
     ekf_.R_ = R_laser_;
+    ekf_.H_ = H_laser_;
     ekf_.Update(measurement_pack.raw_measurements_);
   }
 
