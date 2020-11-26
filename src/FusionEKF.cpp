@@ -65,11 +65,17 @@ void FusionEKF::ProcessMeasurement(const MeasurementPackage &measurement_pack) {
     // first measurement
     previous_timestamp_ = measurement_pack.timestamp_;            
 
+    MatrixXd h = MatrixXd( 4, 4 );
+    h.fill( 0 );                        // H, (and R) will be calculated later, right before calling update() or updateEKF()
+
+    MatrixXd q = MatrixXd( 4, 4 );
+    q.fill( 0 );                        // The real value of Q will be calculated right before calling predict(),
+    
     MatrixXd f = MatrixXd( 4, 4 );
     f <<  1, 0, 1, 0,
           0, 1, 0, 1,
           0, 0, 1, 0,
-          0, 0, 0, 1;
+          0, 0, 0, 1;                   // The real value of F will be updated with dt right before calling predict(),
                
     if (measurement_pack.sensor_type_ == MeasurementPackage::RADAR) {
       int rho = measurement_pack.raw_measurements_[0];
@@ -89,10 +95,7 @@ void FusionEKF::ProcessMeasurement(const MeasurementPackage &measurement_pack) {
            0, 0, 1, 0,
            0, 0, 0, 1;     
 
-      // We don't initialize the whole kalman filter here. Only F, P and the state variable x will be set here. 
-      // For predict phase: Q will be calculated right before calling predict() ( and F will be updated with dt value),
-      // For update phase: H, and R will be calculated right before calling update() or updateEKF()
-      ekf_.Init( x, p, f );
+      ekf_.Init( x, p, f, h, R_radar_, q );
     }
     else if (measurement_pack.sensor_type_ == MeasurementPackage::LASER) {
 
@@ -109,10 +112,7 @@ void FusionEKF::ProcessMeasurement(const MeasurementPackage &measurement_pack) {
            0, 0, 1000, 0,
            0, 0, 0, 1000;     
 
-      // We don't initialize the whole kalman filter here. Only F, P and the state variable x will be set here. 
-      // For predict phase: Q will be calculated right before calling predict() ( and F will be updated with dt value),
-      // For update phase: H, and R will be calculated right before calling update() or updateEKF()
-      ekf_.Init( x, p, f );
+      ekf_.Init( x, p, f, H_laser_, R_laser_, q );
     }
 
     // done initializing, no need to predict or update
